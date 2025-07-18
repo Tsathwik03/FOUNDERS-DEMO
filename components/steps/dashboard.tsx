@@ -2,221 +2,134 @@
 
 import { useFounderContext } from "../contexts/founder-context"
 import AppLayout from "../layout/app-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { CheckCircle, TrendingUp, FileText, Target, Calendar, ChevronLeft, ChevronRight } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import "gridstack/dist/gridstack.min.css"
+
+// Allowed sizes in grid units: [w, h]
+const allowedSizes = [
+  { w: 2, h: 2 },   // 250x250
+  { w: 4, h: 2 },   // 520x250
+  { w: 4, h: 4 },   // 520x520
+  { w: 8, h: 4 },   // 1060x520
+]
+
+function snapToAllowedSize(w: number, h: number) {
+  // Find the allowed size with the smallest distance
+  let minDist = Infinity
+  let best = allowedSizes[0]
+  for (const size of allowedSizes) {
+    const dist = Math.abs(size.w - w) + Math.abs(size.h - h)
+    if (dist < minDist) {
+      minDist = dist
+      best = size
+    }
+  }
+  return best
+}
 
 export default function Dashboard() {
   const { state } = useFounderContext()
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [cards, setCards] = useState([
+    { id: 1, x: 0, y: 0, w: 2, h: 2, label: "Card 1" },
+    { id: 2, x: 2, y: 0, w: 4, h: 2, label: "Card 2" },
+    { id: 3, x: 4, y: 0, w: 4, h: 4, label: "Card 3" },
+  ])
+  const [nextId, setNextId] = useState(4)
 
-  const stats = [
-    { label: "TOTAL PROJECTS", value: "112", icon: Target },
-    { label: "COMPLETED", value: "50", icon: CheckCircle },
-    { label: "IN PROGRESS", value: "50", icon: TrendingUp },
-    { label: "HOLD", value: "12", icon: FileText },
-  ]
+  useEffect(() => {
+    let grid: any
+    if (typeof window !== "undefined" && gridRef.current) {
+      // Dynamically import gridstack only on client
+      import("gridstack").then(({ GridStack }) => {
+        grid = GridStack.init({
+          float: true,
+          cellHeight: 80,
+          margin: 24,
+        }, gridRef.current!)
+        // Snap resizing to allowed sizes only
+        grid.on('resizestop', (event: any, el: any) => {
+          const node = el.gridstackNode
+          if (!node) return
+          const { w, h } = snapToAllowedSize(node.w, node.h)
+          if (node.w !== w || node.h !== h) {
+            grid.update(el, { w, h })
+          }
+        })
+        // Optionally, you can load widgets dynamically here
+      })
+    }
+    return () => {
+      if (grid) grid.destroy(false)
+    }
+  }, [cards])
 
-  const projects = [
-    { name: "E-Commerce", status: "IN PROGRESS", progress: 95 },
-    { name: "E-Commerce", status: "IN PROGRESS", progress: 95 },
-    { name: "E-Commerce", status: "IN PROGRESS", progress: 95 },
-    { name: "E-Commerce", status: "IN PROGRESS", progress: 95 },
-    { name: "E-Commerce", status: "IN PROGRESS", progress: 95 },
-    { name: "E-Commerce", status: "IN PROGRESS", progress: 95 },
-  ]
+  function getNextPosition() {
+    // Find the next available y position (stack below the lowest card)
+    let maxY = 0
+    for (const card of cards) {
+      const bottom = card.y + card.h
+      if (bottom > maxY) maxY = bottom
+    }
+    return { x: 0, y: maxY }
+  }
 
-  const advisors = [
-    { name: "KARAN KHATRI", role: "LEGAL ADVISOR" },
-    { name: "KARAN KHATRI", role: "LEGAL ADVISOR" },
-    { name: "KARAN KHATRI", role: "LEGAL ADVISOR" },
-    { name: "KARAN KHATRI", role: "LEGAL ADVISOR" },
-    { name: "KARAN KHATRI", role: "LEGAL ADVISOR" },
-  ]
-
-  const meetings = [
-    { title: "E-COMMERCE - PRODUCT INFORMATION DISCUSSION", time: "ADMIN DISCUSSION" },
-    { title: "E-COMMERCE - PRODUCT INFORMATION DISCUSSION", time: "ADMIN DISCUSSION" },
-    { title: "E-COMMERCE - PRODUCT INFORMATION DISCUSSION", time: "ADMIN DISCUSSION" },
-    { title: "E-COMMERCE - PRODUCT INFORMATION DISCUSSION", time: "ADMIN DISCUSSION" },
-    { title: "E-COMMERCE - PRODUCT INFORMATION DISCUSSION", time: "ADMIN DISCUSSION" },
-    { title: "E-COMMERCE - PRODUCT INFORMATION DISCUSSION", time: "ADMIN DISCUSSION" },
-  ]
-
-  const calendarDays = [
-    ["", "", "", 1, 2],
-    [3, 4, 5, 6, 7, 8, 9],
-    [10, 11, 12, 13, 14, 15, 16],
-    [17, 18, 19, 20, 21, 22, 23],
-    [24, 25, 26, 27, 28, 29, 30],
-    [31, "", "", "", "", "", ""],
-  ]
+  const handleAddCard = () => {
+    const pos = getNextPosition()
+    setCards([
+      ...cards,
+      {
+        id: nextId,
+        x: pos.x,
+        y: pos.y,
+        w: 2,
+        h: 2,
+        label: `Card ${nextId}`,
+      },
+    ])
+    setNextId(nextId + 1)
+  }
 
   return (
     <AppLayout title="Dashboard">
-      <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-6">
-          {stats.map((stat, index) => {
-            const Icon = stat.icon
-            return (
-              <Card key={index} className="bg-white border border-gray-200">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
-                      <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                      <Icon className="h-6 w-6 text-gray-600" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-3 gap-6">
-          {/* Recent Active Projects */}
-          <Card className="col-span-2 bg-white border border-gray-200">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                RECENT ACTIVE PROJECTS OVERVIEW
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {projects.map((project, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    <span className="text-sm font-medium text-gray-900 w-24">{project.name}</span>
-                    <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                      {project.status}
-                    </Badge>
-                    <div className="flex-1 max-w-xs">
-                      <Progress value={project.progress} className="h-2" />
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">{project.progress}%</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Recent Active Advisor */}
-          <Card className="bg-white border border-gray-200">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                RECENT ACTIVE ADVISOR OVERVIEW
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {advisors.map((advisor, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{advisor.name}</p>
-                    <p className="text-xs text-gray-500">{advisor.role}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Bottom Section */}
-        <div className="grid grid-cols-3 gap-6">
-          {/* Calendar */}
-          <Card className="bg-white border border-gray-200">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-gray-500 uppercase tracking-wide">CALENDAR</CardTitle>
-                <div className="flex items-center gap-2">
-                  <ChevronLeft className="h-4 w-4 text-gray-400 cursor-pointer" />
-                  <span className="text-sm font-medium text-gray-900">JUNE - 2025</span>
-                  <ChevronRight className="h-4 w-4 text-gray-400 cursor-pointer" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="grid grid-cols-7 gap-1 text-xs font-medium text-gray-500 text-center">
-                  {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((day) => (
-                    <div key={day} className="py-2">
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                {calendarDays.map((week, weekIndex) => (
-                  <div key={weekIndex} className="grid grid-cols-7 gap-1">
-                    {week.map((day, dayIndex) => (
-                      <div
-                        key={dayIndex}
-                        className={`h-8 flex items-center justify-center text-sm cursor-pointer rounded ${
-                          day === 31
-                            ? "bg-gray-800 text-white"
-                            : day
-                              ? "hover:bg-gray-100 text-gray-900"
-                              : "text-gray-300"
-                        }`}
-                      >
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Today's Meetings */}
-          <Card className="bg-white border border-gray-200">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                TODAY'S MEETINGS OVERVIEW
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {meetings.map((meeting, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Calendar className="h-3 w-3 text-gray-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-900 leading-tight">{meeting.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">{meeting.time}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Clients Overview */}
-          <Card className="bg-white border border-gray-200">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                CLIENTS OVERVIEW
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end justify-center gap-4 h-32">
-                <div className="flex flex-col items-center">
-                  <div className="w-8 bg-green-500 rounded-t" style={{ height: "80px" }}></div>
-                  <span className="text-xs text-gray-600 mt-2">HAPPY CLIENTS</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className="w-8 bg-orange-500 rounded-t" style={{ height: "40px" }}></div>
-                  <span className="text-xs text-gray-600 mt-2">PASSIVE CLIENTS</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className="w-8 bg-red-500 rounded-t" style={{ height: "20px" }}></div>
-                  <span className="text-xs text-gray-600 mt-2">DETRACTOR CLIENTS</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Custom style to increase the resize handle area */}
+      <style>{`
+        .grid-stack .ui-resizable-se {
+          width: 32px !important;
+          height: 32px !important;
+          right: -16px !important;
+          bottom: -16px !important;
+        }
+      `}</style>
+      <div className="mb-4 flex justify-start">
+        <button
+          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-full shadow hover:bg-blue-700 transition font-medium text-sm"
+          onClick={handleAddCard}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 3.5v13m6.5-6.5h-13" />
+          </svg>
+          Add New Card
+        </button>
+      </div>
+      <div ref={gridRef} className="grid-stack" style={{ minHeight: 600 }}>
+        {cards.map(card => (
+          <div
+            key={card.id}
+            className="grid-stack-item"
+            gs-x={card.x}
+            gs-y={card.y}
+            gs-w={card.w}
+            gs-h={card.h}
+            gs-min-w="2" gs-max-w="8"
+            gs-min-h="2" gs-max-h="4"
+            gs-resize-handles="e, se, s"
+          >
+            <div className="grid-stack-item-content bg-white border border-gray-300 rounded-xl flex items-center justify-center p-4">
+              {card.label}
+            </div>
+          </div>
+        ))}
       </div>
     </AppLayout>
   )
